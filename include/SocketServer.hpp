@@ -2,11 +2,9 @@
 #define SOCKET_SERVER_H
 
 #include <sys/types.h>
-#include <set>
-#include <map>
-#include <functional>
 #include <pthread.h>
-#include <vector>
+#include <map>
+#include <string>
 
 struct server_params
 {
@@ -20,16 +18,21 @@ struct client_params
     std::string address;
     short port;
     int socket;
+    int id;
 };
 
 class SocketServer
 {
   public:
+    int srv_socket;
+    std::map<int, client_params> clnt_list;
+    int clnt_cnt; //count
+    int clnt_num; //next id
+    int (*pHandler)(client_params clnt_params, std::string request);
+
     int start();
     int exit();
-    int srv_socket;
-    std::set<pthread_t> pids;
-    std::vector<client_params> clnt_list;
+    int setHandler(int (*thepHandler)(client_params clnt_params, std::string request));
 
     explicit SocketServer(server_params srv_params);
     ~SocketServer();
