@@ -1,6 +1,6 @@
 # Prerequisites
 *.d
-html.d/
+html/
 
 # Compiled Object files
 *.slo
