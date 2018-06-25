@@ -16,7 +16,6 @@ void *clntThread(void *arg);
 int SocketServer::start()
 {
     listen(this->srv_socket, LENGTH_OF_LISTEN_QUEUE);
-    std::cout << "Started." << '\n';
     client_params clnt_params;
     clnt_params.server = (void *)this;
     int id;
@@ -35,7 +34,7 @@ int SocketServer::start()
 
         this->clnt_list[id] = clnt_params;
 
-        std::cout << "Client " << id << " " << clnt_list[id].address << ":" << clnt_list[id].port << " connected." << '\n';
+        // std::cout << "Client " << id << " " << clnt_list[id].address << ":" << clnt_list[id].port << " connected." << '\n';
         // update the clnt list
 
         // new thread
@@ -64,7 +63,7 @@ SocketServer::SocketServer(server_params srv_params)
     this->clnt_num = 0;
 
     // log
-    std::cout << "Initialized the server." << '\n';
+    // std::cout << "Initialized the server." << '\n';
 }
 
 SocketServer::~SocketServer()
@@ -76,7 +75,7 @@ int SocketServer::exit()
 {
     // destory clients' threads then
     close(this->srv_socket);
-    std::cout << "Exited." << '\n';
+    // std::cout << "Exited." << '\n';
     return 0;
 }
 
@@ -89,8 +88,8 @@ int SocketServer::setHandler(int (*thepHandler)(client_params clnt_params, std::
 void *clntThread(void *arg)
 {
     client_params clnt_params = *((client_params *)arg);
-    char buffer[BUFFER_SIZE];
-    bzero(buffer, BUFFER_SIZE);
+    char buffer[BUFFER_SIZE + 1];
+    bzero(buffer, BUFFER_SIZE + 1);
     int current_cnt;
     socklen_t length;
     std::string request_str;
@@ -98,7 +97,9 @@ void *clntThread(void *arg)
     do
     {
         request_str = "";
+        bzero(buffer, BUFFER_SIZE + 1);
         length = recv(clnt_params.socket, buffer, BUFFER_SIZE, 0);
+        buffer[BUFFER_SIZE] = 0;
         request_str = buffer;
 
         (*(((SocketServer *)(clnt_params.server))->pHandler))(clnt_params, request_str);
@@ -106,12 +107,12 @@ void *clntThread(void *arg)
     } while (length > 0);
 
     // log
-    std::cout << "Client " << clnt_params.address << ":" << clnt_params.port << " left." << '\n';
+    // std::cout << "Client " << clnt_params.address << ":" << clnt_params.port << " left." << '\n';
 
     // delete from the clnt list
     ((SocketServer *)(clnt_params.server))->clnt_list.erase(clnt_params.id);
     current_cnt = --(((SocketServer *)(clnt_params.server))->clnt_cnt);
     // log
-    std::cout << "Node deleted. Now we have " << current_cnt << " clients.\n";
+    // std::cout << "Node deleted. Now we have " << current_cnt << " clients.\n";
     return 0;
 }

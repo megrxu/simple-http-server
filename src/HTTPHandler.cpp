@@ -8,11 +8,13 @@
 #include <sys/socket.h>
 #include <fstream>
 #include <streambuf>
+#include <unistd.h>
 #include <time.h>
 #include <iomanip>
 #include <sstream>
 
 #define ROOT "./html"
+#define SERVER_NAME "NaiveHTTPServer/0.0.1"
 
 std::ifstream t("file.txt");
 std::string str((std::istreambuf_iterator<char>(t)),
@@ -28,7 +30,6 @@ int HTTP_handler(client_params clnt_params, std::string raw_str)
     while (raw_str.length() && (bool)(index = raw_str.find("\r\n\r\n")))
     {
         request_str = raw_str.substr(0, index);
-        std::cout << request_str << "\n\n";
         if (index + 4 < raw_str.length())
         {
             raw_str = raw_str.substr(index + 4);
@@ -40,53 +41,99 @@ int HTTP_handler(client_params clnt_params, std::string raw_str)
         HTTPRequest request = HTTPRequest(request_str);
         if (request.method != "NOTHANDLED")
         {
-            HTTPResponse response = request.getResponse();
+            HTTPResponse response = request.getResponse(raw_str);
             send(clnt_params.socket, response.response_str.data(), response.response_str.length(), 0);
+            raw_str = response.next_raw_str;
         }
     };
     return 0;
 }
 
-HTTPResponse HTTPRequest::getResponse()
+HTTPResponse HTTPRequest::getResponse(std::string raw_str)
 {
     HTTPResponse response = HTTPResponse();
 
-    // type
-    if (this->path.back() == '/')
+    if (this->method == "GET")
     {
-        this->path += "index.html";
+        // type
+        if (this->path.back() == '/')
+        {
+            this->path += "index.html";
+        }
+        std::size_t index = this->path.find_last_of(".");
+        std::string ext;
+        if (index + 1 < this->path.length())
+        {
+            ext = this->path.substr(index + 1);
+        }
+        if (ext == "html")
+        {
+            response.type = "text/html";
+        }
+        else if (ext == "jpg" || ext == "jpeg" || ext == "JPG" || ext == "JPEG")
+        {
+            response.type = "image/jpg";
+        }
+        else if (ext == "png" || ext == "PNG")
+        {
+            response.type = "image/png";
+        }
+
+        std::ifstream file(ROOT + this->path);
+        if (file)
+        {
+            std::string file_str((std::istreambuf_iterator<char>(file)),
+                                 std::istreambuf_iterator<char>());
+            response.content = file_str;
+        }
+        else
+        {
+            response.status = "404 Not Found";
+            response.content = "404 Not Found";
+        }
     }
-    std::size_t index = this->path.find_last_of(".");
-    std::string ext;
-    if (index + 1 < this->path.length())
+    else if (this->method == "POST")
     {
-        ext = this->path.substr(index + 1);
-    }
-    if (ext == "html")
-    {
-        response.type = "text/html";
-    }
-    else if (ext == "jpg" || ext == "jpeg" || ext == "JPG" || ext == "JPEG")
-    {
-        response.type = "image/jpg";
-    }
-    else
-    {
-        response.type = "text/txt";
+        if (this->path == "/dopost")
+        {
+            if (header["Content-Length"].size())
+            {
+                size_t index = std::stoi(header["Content-Length"]);
+                std::string data = raw_str.substr(0, index);
+                if ((index + 1) < raw_str.size())
+                {
+
+                    raw_str = raw_str.substr(index + 1);
+                }
+                else
+                {
+                    raw_str = "";
+                }
+                response.status = "200 OK";
+                response.type = "text/html";
+                if (data == "login=3150104717&pass=4717")
+                {
+                    response.content = "<html><body>Login Successful!</body></html>";
+                }
+                else
+                {
+                    response.content = "<html><body>Login Failed!</body></html>";
+                }
+            }
+            else
+            {
+                response.status = "403 Forbidden";
+                response.content = "403 Forbidden";
+            }
+        }
+        else
+        {
+            response.status = "404 Not Found";
+            response.content = "404 Not Found";
+        }
     }
 
-    std::ifstream file(ROOT + this->path);
-    if (file)
-    {
-        std::string file_str((std::istreambuf_iterator<char>(file)),
-                             std::istreambuf_iterator<char>());
-        response.content = file_str;
-    }
-    else
-    {
-        response.status = "404 Not Found";
-        response.content = "";
-    }
+    response.next_raw_str = raw_str;
 
     response.toString();
     return response;
@@ -104,19 +151,16 @@ HTTPResponse::HTTPResponse()
     std::stringstream time_buffer;
     time_buffer << std::put_time(timeinfo, "%a %b %d %H:%M:%S %Y");
 
-    this->datetime = "Sun, 18 Oct 2009 08:56:53 GMT";
     this->datetime = time_buffer.str();
-    this->server = "NaiveHTTPServer/0.0.1";
-    this->mtime = "Sat, 20 Nov 2004 07:16:26 GMT";
+    this->server = SERVER_NAME;
     this->mtime = time_buffer.str();
-    this->content = "<html><body><h1>It works!</h1></body></html>";
+    this->content = "200 OK";
     this->length = this->content.size();
-    this->type = "text/html";
+    this->type = "text/plain";
 }
 
 void HTTPResponse::toString()
 {
-    std::map<std::string, std::string> header;
     header["Date"] = this->datetime;
     header["Server"] = this->server;
     header["Last-Modified"] = this->mtime;
@@ -126,7 +170,7 @@ void HTTPResponse::toString()
     //status
     this->response_str = "HTTP/1.1 " + this->status + "\r\n";
 
-    // other
+    // other header
     std::string text = "";
     std::map<std::string, std::string>::iterator iter;
     iter = header.begin();
@@ -175,6 +219,19 @@ HTTPRequest::HTTPRequest(std::string request_str)
     else
     {
         this->method = "NOTHANDLED";
+    }
+
+    // other header
+    int i = 1;
+    int length = lines.size();
+    while (i < length)
+    {
+        index = lines[i].find(":");
+        if (index < lines[i].length() && index != 0)
+        {
+            this->header[lines[i].substr(0, index)] = lines[i].substr(index + 2);
+        }
+        i++;
     }
 
     // path

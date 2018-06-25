@@ -15,7 +15,10 @@ public:
   std::string mtime;
   int length;
   std::string type;
+  std::map<std::string, std::string> header;
+
   std::string response_str;
+  std::string next_raw_str;
   HTTPResponse();
   void toString();
 };
@@ -25,13 +28,13 @@ class HTTPRequest
 public:
   std::string method;
   std::string path;
-  std::string host;
   std::string root;
   std::string request_str;
+  std::map<std::string, std::string> header;
 
   HTTPRequest(std::string request_str);
 
-  HTTPResponse getResponse();
+  HTTPResponse getResponse(std::string raw_str);
 };
 
 #endif // !HTTP_HANDLER_H
