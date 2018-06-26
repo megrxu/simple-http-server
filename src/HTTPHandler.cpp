@@ -72,7 +72,7 @@ HTTPResponse HTTPRequest::getResponse(std::string raw_str)
         }
         else if (ext == "jpg" || ext == "jpeg" || ext == "JPG" || ext == "JPEG")
         {
-            response.type = "image/jpg";
+            response.type = "image/jpeg";
         }
         else if (ext == "png" || ext == "PNG")
         {
@@ -182,7 +182,7 @@ void HTTPResponse::toString()
     this->response_str += text;
 
     // content
-    this->response_str += "\r\n" + this->content;
+    this->response_str += "\r\n" + this->content + "\r\n\r\n";
 }
 
 HTTPRequest::HTTPRequest(std::string request_str)

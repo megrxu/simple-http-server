@@ -21,21 +21,19 @@ int SocketServer::start()
     int id;
     do
     {
+        // init address params
         struct sockaddr_in clnt_addr;
         socklen_t length = sizeof(clnt_addr);
         int clnt_socket = accept(srv_socket, (struct sockaddr *)&clnt_addr, &length);
 
+        // update client list
         clnt_params.server = (void *)this;
         clnt_params.address = inet_ntoa(clnt_addr.sin_addr);
         clnt_params.port = ntohs(clnt_addr.sin_port);
         clnt_params.socket = clnt_socket;
         id = clnt_params.id = ++this->clnt_num;
         this->clnt_cnt++;
-
         this->clnt_list[id] = clnt_params;
-
-        // std::cout << "Client " << id << " " << clnt_list[id].address << ":" << clnt_list[id].port << " connected." << '\n';
-        // update the clnt list
 
         // new thread
         pthread_t process;
@@ -106,13 +104,8 @@ void *clntThread(void *arg)
         // check if alive
     } while (length > 0);
 
-    // log
-    // std::cout << "Client " << clnt_params.address << ":" << clnt_params.port << " left." << '\n';
-
     // delete from the clnt list
     ((SocketServer *)(clnt_params.server))->clnt_list.erase(clnt_params.id);
     current_cnt = --(((SocketServer *)(clnt_params.server))->clnt_cnt);
-    // log
-    // std::cout << "Node deleted. Now we have " << current_cnt << " clients.\n";
     return 0;
 }
